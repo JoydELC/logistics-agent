@@ -1,0 +1,33 @@
+client_name: "TransLogistics Corp"
+client_id: "client_a"
+language: "es"
+tone: "formal"
+policies:
+  no_hallucinate: true
+  ask_confirmation_before_changes: true
+  escalate_on_unknown: true
+  max_questions_per_turn: 2
+required_fields:
+  status:
+    - shipment_id
+  reschedule:
+    - shipment_id
+    - new_date
+    - new_time_window
+  ticket:
+    - shipment_id
+    - issue_type
+    - description
+    - severity
+    - contact_name
+message_formats:
+  greeting: "Buen día. Soy el asistente virtual de {client_name}. ¿En qué puedo servirle?"
+  status_update: "Estimado usuario, le informo sobre el envío {shipment_id}:\n- Tipo: {order_type}\n- Estado: {status}\n- Origen: {origin}\n- Destino: {destination}\n- {eta_info}"
+  reschedule_confirm: "Se ha reprogramado exitosamente el envío {shipment_id} para el {new_date} en horario de {time_window}."
+  reschedule_error: "No fue posible reprogramar el envío {shipment_id}. {reason}. ¿Desea que escale esta solicitud?"
+  ticket_created: "Se ha registrado su incidencia con número {ticket_id}. Tipo: {issue_type}. Severidad: {severity}. Le daremos seguimiento."
+  fallback: "Disculpe, esa solicitud está fuera de mi alcance actual. Puedo ayudarle con: consultar estado de envío, reprogramar entregas o reportar incidencias. ¿Desea que lo comunique con un agente?"
+  error_not_found: "No se encontró información para el envío {shipment_id}. Verifique el número e intente nuevamente."
+  ask_missing: "Para procesar su solicitud necesito la siguiente información:"
+  ask_date_format: "Por favor indique la nueva fecha en formato AAAA-MM-DD, por ejemplo 2025-03-15."
+  ask_time_window_format: "Puede elegir: mañana (6-12h), tarde (12-18h), noche (18-24h), o un rango como 09:00-14:00."

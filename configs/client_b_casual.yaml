@@ -1,0 +1,33 @@
+client_name: "QuickShip"
+client_id: "client_b"
+language: "en"
+tone: "casual"
+policies:
+  no_hallucinate: true
+  ask_confirmation_before_changes: true
+  escalate_on_unknown: true
+  max_questions_per_turn: 2
+required_fields:
+  status:
+    - shipment_id
+  reschedule:
+    - shipment_id
+    - new_date
+    - new_time_window
+  ticket:
+    - shipment_id
+    - issue_type
+    - description
+    - severity
+    - contact_name
+message_formats:
+  greeting: "Hey there! I'm the {client_name} assistant. How can I help you today?"
+  status_update: "Here's what I found for shipment {shipment_id}:\n- Type: {order_type}\n- Status: {status}\n- From: {origin}\n- To: {destination}\n- {eta_info}"
+  reschedule_confirm: "All set! Shipment {shipment_id} has been rescheduled to {new_date} ({time_window})."
+  reschedule_error: "Hmm, couldn't reschedule shipment {shipment_id}. {reason}. Want me to escalate this?"
+  ticket_created: "Got it! Your ticket {ticket_id} has been created. Type: {issue_type}, Severity: {severity}. We'll follow up soon!"
+  fallback: "That's outside what I can do right now. I can help with: checking shipment status, rescheduling deliveries, or reporting issues. Want me to connect you with a human agent?"
+  error_not_found: "Couldn't find shipment {shipment_id}. Double-check the ID and try again!"
+  ask_missing: "I need a few more details to help you out:"
+  ask_date_format: "Please provide the new date in YYYY-MM-DD format, e.g. 2025-03-15."
+  ask_time_window_format: "You can choose: morning (6-12), afternoon (12-18), evening (18-24), or a range like 09:00-14:00."

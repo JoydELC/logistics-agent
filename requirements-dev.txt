@@ -1,0 +1,4 @@
+# Dependencias para desarrollo y tests
+pytest
+httpx
+pytest-asyncio
