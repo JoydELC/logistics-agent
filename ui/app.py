@@ -6,6 +6,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import html
 
 import httpx
 import streamlit as st
@@ -224,7 +225,12 @@ def _format_log_time(ts_iso: str) -> str:
 
 
 def _render_log_card(entry: dict) -> str:
-    """Genera HTML de una card de log."""
+    """Genera HTML de una card de log.
+
+    El esqueleto (div/span/clases) se mantiene como HTML, pero TODO el contenido
+    proveniente de los logs se escapa con html.escape para evitar inyección o
+    que se vean tags crudos en la UI.
+    """
     level = (entry.get("level") or "INFO").upper()
     if level == "WARNING":
         level_class = "warning"
@@ -232,23 +238,34 @@ def _render_log_card(entry: dict) -> str:
         level_class = "error"
     else:
         level_class = "info"
-    ts = _format_log_time(entry.get("timestamp") or "")
-    rid = entry.get("request_id") or ""
-    logger_name = entry.get("logger") or ""
-    msg = (entry.get("message") or "").replace("<", "&lt;").replace(">", "&gt;")
+
+    # Valores crudos desde el log
+    ts_raw = _format_log_time(entry.get("timestamp") or "")
+    rid_raw = entry.get("request_id") or ""
+    logger_raw = entry.get("logger") or ""
+    msg_raw = entry.get("message") or ""
     extra = entry.get("extra") or {}
-    extra_parts = []
+
+    # Construir partes de extra en crudo
+    extra_parts_raw = []
     if extra.get("method"):
-        extra_parts.append(f"{extra['method']} {extra.get('path', '')}")
+        extra_parts_raw.append(f"{extra['method']} {extra.get('path', '')}")
     if extra.get("status_code") is not None:
-        extra_parts.append(f"→ {extra['status_code']}")
+        extra_parts_raw.append(f"→ {extra['status_code']}")
     if extra.get("duration_ms") is not None:
-        extra_parts.append(f"{extra['duration_ms']} ms")
-    if rid:
-        extra_parts.append(f"req:{rid}")
-    extra_html = " · ".join(str(p) for p in extra_parts) if extra_parts else ""
-    rid_span = f'<span class="log-card-rid">#{rid}</span>' if rid else ""
-    logger_span = f'<span class="log-card-logger">{logger_name}</span>' if logger_name else ""
+        extra_parts_raw.append(f"{extra['duration_ms']} ms")
+    if rid_raw:
+        extra_parts_raw.append(f"req:{rid_raw}")
+
+    # Escapar contenido dinámico antes de interpolar en la plantilla HTML
+    ts = html.escape(str(ts_raw), quote=False)
+    rid = html.escape(str(rid_raw), quote=False)
+    logger_name = html.escape(str(logger_raw), quote=False)
+    msg = html.escape(str(msg_raw), quote=False)
+    extra_html = html.escape(" · ".join(str(p) for p in extra_parts_raw), quote=False) if extra_parts_raw else ""
+
+    rid_span = f'<span class="log-card-rid">#{rid}</span>' if rid_raw else ""
+    logger_span = f'<span class="log-card-logger">{logger_name}</span>' if logger_raw else ""
     extra_block = f'<div class="log-card-extra">{extra_html}</div>' if extra_html else ""
     return f'''
     <div class="log-card log-{level_class}">

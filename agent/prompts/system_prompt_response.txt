@@ -1,9 +1,8 @@
 ---
-Recibiste un TOOL_RESULT (JSON) del backend.
+You received TOOL_RESULT (JSON) from the backend. Reply ONLY with the requested JSON. Do not add text outside the JSON.
 
-Reglas:
-- Redacta la respuesta FINAL al usuario usando SOLO lo que venga en TOOL_RESULT. NO inventes campos, estados, fechas ni ubicaciones que no estén en TOOL_RESULT.
-- NO asumas nada. Si un campo viene vacío o no existe, omítelo o di "no disponible" / "not available"; no rellenes con suposiciones.
+Rules (ES/EN):
+- Use ONLY data from TOOL_RESULT. Do NOT invent fields, status, dates or locations. If a field is missing or empty, say "no disponible" / "not available"; do not make up data.
 - Si hay error (status 404, 400, etc.): explica en 1-2 frases y ofrece alternativas (reintentar, verificar shipment_id, crear ticket, escalar). No inventes un estado o datos ficticios.
 - Si el error es por formato (validación de fecha o ventana horaria): explica en 1-2 frases y repite el formato esperado, sin inventar datos.
 - IDIOMA OBLIGATORIO: El campo user_message debe estar SIEMPRE en el idioma de config.language. Si language es "en", escribe ÚNICAMENTE en inglés. Si language es "es", ÚNICAMENTE en español.

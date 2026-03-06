@@ -53,8 +53,13 @@ class ResponseBuilder:
         text = text.replace("{{INTENT}}", intent)
         return text
 
-    def _fallback_from_tool_result(self, tool_result: dict, intent: str) -> dict:
-        """Construye una respuesta básica sin LLM cuando Ollama falla."""
+    def _fallback_from_tool_result(
+        self, tool_result: dict, intent: str, client_config: dict | None = None
+    ) -> dict:
+        """Construye una respuesta básica sin LLM cuando Ollama falla. Idioma según client_config.language."""
+        lang = (client_config or {}).get("language", "es")
+        is_en = isinstance(lang, str) and lang.strip().lower() == "en"
+
         success = tool_result.get("success", False)
         data = tool_result.get("data")
         error = tool_result.get("error", "")
@@ -67,23 +72,36 @@ class ResponseBuilder:
                 eta = data.get("eta_info", "")
                 fax = data.get("fax") or {}
                 order_type = fax.get("order_type", "N/A")
-                origin = fax.get("stop1_name") or fax.get("stop1_city") or "no disponible"
-                dest = fax.get("stop2_name") or fax.get("stop2_city") or "no disponible"
-                user_message = f"Envío {sid}: tipo {order_type}, estado {status}. Origen: {origin}. Destino: {dest}. {eta}"
+                origin = fax.get("stop1_name") or fax.get("stop1_city") or ("no disponible" if not is_en else "not available")
+                dest = fax.get("stop2_name") or fax.get("stop2_city") or ("no disponible" if not is_en else "not available")
+                if is_en:
+                    user_message = f"Shipment {sid}: type {order_type}, status {status}. Origin: {origin}. Destination: {dest}. {eta}"
+                else:
+                    user_message = f"Envío {sid}: tipo {order_type}, estado {status}. Origen: {origin}. Destino: {dest}. {eta}"
             elif intent == "reschedule" and isinstance(data, dict):
                 sid = data.get("shipment_id", "N/A")
                 new_date = data.get("new_date", "N/A")
                 time_window = data.get("new_time_window", "N/A")
-                user_message = f"Reprogramación confirmada. Envío {sid}: nueva fecha {new_date}, ventana {time_window}."
+                if is_en:
+                    user_message = f"Reschedule confirmed. Shipment {sid}: new date {new_date}, window {time_window}."
+                else:
+                    user_message = f"Reprogramación confirmada. Envío {sid}: nueva fecha {new_date}, ventana {time_window}."
             elif intent == "ticket" and isinstance(data, dict):
                 tid = data.get("ticket_id", "N/A")
                 issue = data.get("issue_type", "N/A")
                 sev = data.get("severity", "N/A")
-                user_message = f"Ticket creado: {tid}. Tipo: {issue}, severidad: {sev}. Le daremos seguimiento."
+                if is_en:
+                    user_message = f"Ticket created: {tid}. Type: {issue}, severity: {sev}. We'll follow up."
+                else:
+                    user_message = f"Ticket creado: {tid}. Tipo: {issue}, severidad: {sev}. Le daremos seguimiento."
             else:
-                user_message = "Operación completada correctamente."
+                user_message = "Operation completed successfully." if is_en else "Operación completada correctamente."
         else:
-            user_message = f"No se pudo completar la operación. {error or message}".strip() or "Error desconocido. ¿Desea reintentar o hablar con un agente?"
+            err = (error or message or "").strip()
+            if is_en:
+                user_message = f"Could not complete the operation. {err}".strip() or "Unknown error. Would you like to retry or speak with an agent?"
+            else:
+                user_message = f"No se pudo completar la operación. {err}".strip() or "Error desconocido. ¿Desea reintentar o hablar con un agente?"
 
         return {
             "intent": intent,
@@ -100,28 +118,34 @@ class ResponseBuilder:
         """
         prompt = self._load_prompt(client_config, tool_result, intent)
         if not prompt:
-            return self._fallback_from_tool_result(tool_result, intent)
+            return self._fallback_from_tool_result(tool_result, intent, client_config)
 
         url = f"{self.ollama_base_url}/api/chat"
         messages = [
             {"role": "system", "content": prompt},
             {"role": "user", "content": "Genera la respuesta en JSON con el formato indicado."},
         ]
-        body = {"model": self.model, "messages": messages, "stream": False, "format": "json"}
+        body = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "format": "json",
+            "options": {"num_predict": 200, "temperature": 0.1},
+        }
 
         try:
-            with httpx.Client(timeout=30.0) as client:
+            with httpx.Client(timeout=60.0) as client:
                 response = client.post(url, json=body)
                 response.raise_for_status()
         except (httpx.TimeoutException, httpx.HTTPError, Exception) as e:
             logger.warning("ResponseBuilder: Ollama no respondió: %s", e)
-            return self._fallback_from_tool_result(tool_result, intent)
+            return self._fallback_from_tool_result(tool_result, intent, client_config)
 
         try:
             data = response.json()
         except json.JSONDecodeError:
             logger.warning("ResponseBuilder: respuesta de Ollama no es JSON")
-            return self._fallback_from_tool_result(tool_result, intent)
+            return self._fallback_from_tool_result(tool_result, intent, client_config)
 
         content = None
         if isinstance(data, dict):
@@ -133,7 +157,7 @@ class ResponseBuilder:
 
         if not content or not content.strip():
             logger.warning("ResponseBuilder: contenido vacío de Ollama")
-            return self._fallback_from_tool_result(tool_result, intent)
+            return self._fallback_from_tool_result(tool_result, intent, client_config)
 
         try:
             parsed = json.loads(content.strip())
@@ -149,10 +173,10 @@ class ResponseBuilder:
                 parsed = None
             if not isinstance(parsed, dict) or "user_message" not in parsed:
                 logger.warning("ResponseBuilder: no se pudo extraer JSON válido")
-                return self._fallback_from_tool_result(tool_result, intent)
+                return self._fallback_from_tool_result(tool_result, intent, client_config)
 
         if not isinstance(parsed.get("user_message"), str):
-            return self._fallback_from_tool_result(tool_result, intent)
+            return self._fallback_from_tool_result(tool_result, intent, client_config)
 
         # Asegurar formato completo
         return {

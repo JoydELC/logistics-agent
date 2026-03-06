@@ -67,6 +67,24 @@ streamlit run ui/app.py   # Terminal 3
 
 ---
 
+## How intent classification works now
+
+Intent classification is **keyword-first** to improve accuracy and avoid timeouts:
+
+1. **Pre-classifier (deterministic)**  
+   If the user message matches a single intent by keywords (e.g. "reschedule", "reagendar", "status", "ticket"), the classifier returns that intent without calling the LLM. Required fields and `missing_fields` come from the client YAML (`required_fields`). Entities (e.g. `shipment_id`, `new_date`, `new_time_window`) are extracted only when clearly present (no hallucination).
+
+2. **Override when LLM says "other"**  
+   If the LLM returns intent `other` but keywords suggest `reschedule`, `status` or `ticket`, the result is overridden to that intent and a deterministic reply is built (asking for missing data in `config.language`).
+
+3. **Language**  
+   `user_message` is always in the client's `config.language` (es/en), not the user's language. The orchestrator has a guardrail that rewrites the message with config templates if the language appears wrong.
+
+4. **No hallucination**  
+   The classifier never invents `shipment_id`, dates or time windows. It only extracts literal values (e.g. `YYYY-MM-DD`, "morning"/"tarde"). Short greetings (hola/hi) are answered directly from config (`message_formats.greeting`) without calling the LLM.
+
+---
+
 ## Key Endpoints (API)
 
 | Método | Ruta | Descripción |
